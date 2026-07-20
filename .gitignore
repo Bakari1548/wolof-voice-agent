@@ -1,0 +1,11 @@
+.env
+venv
+.venv
+__pycache__
+*.pyc
+tmp/
+assets/
+*.log
+*.wav
+*.mp3
+gemini_usage.json

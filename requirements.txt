@@ -1,0 +1,26 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+python-dotenv
+langchain
+langgraph
+langchain-google-genai
+langgraph-checkpoint-mongodb
+pymongo
+faster-whisper
+requests
+
+# TTS : Oolel-Voices (soynade-research)
+torch
+torchaudio
+huggingface_hub
+librosa>=0.10.2
+transformers>=4.46.3
+diffusers>=0.29.0
+conformer==0.3.2
+numpy>=2.0.0
+torchcodec
+s3tokenizer
+num2words
+omegaconf
