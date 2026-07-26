@@ -11,15 +11,26 @@ load_dotenv()
 
 
 class Settings:
-    # --- Google Gemini (LLM) ---
+    # --- Google Gemini ---
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-3.5-flash")
+    # Modèle dédié à l'agent de raisonnement
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")  # "google_genai" ou "groq"
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+    # Modèle dédié à la traduction wolof <-> français
+    TRANSLATION_MODEL: str = os.getenv("TRANSLATION_MODEL", "gemini-3.6-flash")
+
+    # --- Groq ---
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
     # --- STT (Speech-to-Text) ---
-    # Choix : "whisper_local" (faster-whisper) ou "elevenlabs"
-    STT_PROVIDER: str = os.getenv("STT_PROVIDER", "whisper_local")
+    # Choix : "whisper_local" (faster-whisper), "elevenlabs" ou "dikkte" (HF wolof)
+    STT_PROVIDER: str = os.getenv("STT_PROVIDER", "dikkte")
     ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
     WHISPER_MODEL_SIZE: str = os.getenv("WHISPER_MODEL_SIZE", "small")
+    # Langue forcée pour faster-whisper (ex: 'wo', 'fr', ''). Vide = auto-détection.
+    STT_LANGUAGE: str = os.getenv("STT_LANGUAGE", "")
+    # Modèle Hugging Face ASR utilisé si STT_PROVIDER=dikkte
+    HF_STT_MODEL: str = os.getenv("HF_STT_MODEL", "utachicodes/dikkte-wolof-asr")
 
     # --- TTS (Text-to-Speech) ---
     TTS_PROVIDER: str = os.getenv("TTS_PROVIDER", "oolel")  # "oolel" ou "xtts"
@@ -39,7 +50,8 @@ settings = Settings()
 
 os.makedirs(settings.TMP_AUDIO_DIR, exist_ok=True)
 
-# ChatGoogleGenerativeAI (langchain-google-genai) lit la clé depuis cette
-# variable d'environnement standard.
+# Clés API injectées dans les variables standards pour les adaptateurs LangChain.
 if settings.GOOGLE_API_KEY:
     os.environ.setdefault("GOOGLE_API_KEY", settings.GOOGLE_API_KEY)
+if settings.GROQ_API_KEY:
+    os.environ.setdefault("GROQ_API_KEY", settings.GROQ_API_KEY)

@@ -1,16 +1,16 @@
 """
-Traduction wolof <-> français via Google Gemini.
-
+Traduction wolof <-> français via Gemini.
 Deux appels séparés (un par sens) pour garder un contrôle simple sur chaque
 étape : tu peux inspecter transcript_french / answer_french dans la réponse
-de l'API pour voir exactement ce que le LLM a compris/répondu, indépendamment
-de la qualité de la traduction finale.
+de l'API pour voir exactement ce que le modèle a compris/répondu.
 """
 
 from functools import lru_cache
 
 from langchain_core.messages import HumanMessage
-from app.core.llm import get_llm
+
+from app.config import settings
+from app.core.llm import get_translation_llm, invoke_with_retry
 from app.core.usage import increment_gemini_calls
 
 
@@ -18,7 +18,10 @@ from app.core.usage import increment_gemini_calls
 def _translate(text: str, source: str, target: str) -> str:
     if not text.strip():
         return ""
+    return _translate_gemini(text, source, target)
 
+
+def _translate_gemini(text: str, source: str, target: str) -> str:
     prompt = (
         f"Traduis le texte suivant du {source} vers le {target}. "
         f"Réponds UNIQUEMENT avec la traduction, sans aucun commentaire, "
@@ -26,7 +29,7 @@ def _translate(text: str, source: str, target: str) -> str:
         f"Texte : {text}"
     )
     increment_gemini_calls(1)
-    response = get_llm().invoke([HumanMessage(content=prompt)])
+    response = invoke_with_retry(get_translation_llm(), [HumanMessage(content=prompt)])
     content = response.content
     if isinstance(content, list):
         text_parts = [

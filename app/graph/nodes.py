@@ -6,7 +6,7 @@ exécution des tools.
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import ToolNode
 
-from app.core.llm import get_llm
+from app.core.llm import get_llm, invoke_with_retry
 from app.core.usage import increment_gemini_calls
 from app.graph.prompts import SYSTEM_PROMPT
 from app.graph.state import AgentState
@@ -24,7 +24,7 @@ def agent_node(state: AgentState) -> dict:
         messages = [SystemMessage(content=SYSTEM_PROMPT), *messages]
 
     increment_gemini_calls(1)
-    response = llm_with_tools.invoke(messages)
+    response = invoke_with_retry(llm_with_tools, messages)
     return {"messages": [response]}
 
 

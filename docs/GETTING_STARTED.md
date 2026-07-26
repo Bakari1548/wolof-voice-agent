@@ -9,8 +9,9 @@ Guide rapide pour installer, configurer et exécuter l'agent vocal wolof en loca
 - **Python** 3.10 ou supérieur (testé avec Python 3.14).
 - **Git**
 - **MongoDB** (optionnel : l'application peut fonctionner avec `MemorySaver` si MongoDB n'est pas dispo).
-- Une clé **Google Gemini** (`GOOGLE_API_KEY`).
-- Un token **Hugging Face** (`HF_TOKEN`) fortement recommandé pour accélérer le téléchargement du modèle TTS.
+- Une clé **Google Gemini** (`GOOGLE_API_KEY`) pour la traduction.
+- Une clé **Groq** (`GROQ_API_KEY`) pour l'agent de raisonnement (ou bascule `LLM_PROVIDER=google_genai` si tu veux repasser sur Gemini).
+- Un token **Hugging Face** (`HF_TOKEN`) fortement recommandé pour accélérer le téléchargement des modèles HF (TTS / STT).
 - Un échantillon audio `.wav` de 6+ secondes pour le clonage de voix.
 
 ---
@@ -41,23 +42,42 @@ cp .env.example .env
 Édite le fichier `.env` et renseigne au minimum :
 
 ```bash
-# Google Gemini (obligatoire)
+# Google Gemini (utilisé pour la traduction)
 GOOGLE_API_KEY=ta_cle_gemini
-LLM_MODEL=gemini-3.5-flash
+TRANSLATION_MODEL=gemini-3.6-flash
 
-# Hugging Face (fortement recommandé)
-HF_TOKEN=hf_...
+# Groq (utilisé pour l'agent de raisonnement)
+GROQ_API_KEY=ta_cle_groq
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.3-70b-versatile
 
-# MongoDB (optionnel)
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB_NAME=assistabt_voices_db
+# STT
+# Choix : whisper_local, elevenlabs, dikkte
+STT_PROVIDER=dikkte
+ELEVENLABS_API_KEY=
+WHISPER_MODEL_SIZE=small
+STT_LANGUAGE=
+HF_STT_MODEL=utachicodes/dikkte-wolof-asr
 
 # TTS
 TTS_PROVIDER=oolel
 TTS_VOICE_SAMPLE_PATH=app/assets/voice_sample.wav
+HF_TOKEN=hf_...
+
+# MongoDB
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB_NAME=mydb
+
 ```
 
 > Le token Hugging Face se crée ici : [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
+
+### Rôles des modèles LLM
+
+- **Google Gemini** (`GOOGLE_API_KEY`, `TRANSLATION_MODEL`) : traduction wolof ↔ français.
+- **Groq** (`GROQ_API_KEY`, `LLM_PROVIDER=groq`, `LLM_MODEL`) : agent de raisonnement et appel des tools.
+
+`LLM_PROVIDER` reste configurable : `groq` (défaut) ou `google_genai` pour revenir sur Gemini pour l'agent.
 
 ---
 
@@ -112,7 +132,7 @@ set -a
 source .env
 set +a
 
-python -m uvicorn app.main:app
+python -m uvicorn app.main:app --port 8002
 ```
 
 ---
@@ -122,13 +142,13 @@ python -m uvicorn app.main:app
 ### Health check
 
 ```bash
-curl -s http://127.0.0.1:8000/health
+curl -s http://127.0.0.1:8002/health
 ```
 
 ### Pipeline complet texte
 
 ```bash
-curl -s -m 180 -X POST http://127.0.0.1:8000/debug/text-query \
+curl -s -m 180 -X POST http://127.0.0.1:8002/debug/text-query \
   -H 'Content-Type: application/json' \
   -d '{"user_id":"u1","text_wolof":"Am guen sukkar?"}'
 ```
@@ -156,7 +176,7 @@ Réponse attendue (avec `audio_url` rempli après le premier chargement) :
 | `ModuleNotFoundError: No module named 'configuration_oolel_voices'` | Import absolu du code custom d'Oolel | Corrigé dans `app/services/tts.py` : le config est pré-chargé |
 | `ModuleNotFoundError: No module named 'omegaconf'` | Dépendance manquante du modèle | `venv/bin/pip install omegaconf` |
 | `Fetching 109 files: 0%` puis timeout | Pas de `HF_TOKEN` ou connexion HF lente | Ajoute `HF_TOKEN` dans `.env` |
-| Port 8000 déjà utilisé | Ancien process uvicorn | `pkill -f 'uvicorn app.main'` |
+| Port 8002 déjà utilisé | Ancien process uvicorn | `pkill -f 'uvicorn app.main'` |
 | Pas d'audio généré (`audio_url: ""`) | Échantillon voix manquant | Vérifie `app/assets/voice_sample.wav` |
 
 ---
@@ -164,11 +184,13 @@ Réponse attendue (avec `audio_url` rempli après le premier chargement) :
 ## 10. Architecture rapide
 
 ```text
-texte wolof
+audio wolof
+    ↓
+STT Dikkte (Hugging Face) audio → texte wolof
     ↓
 Traduction (wolof → français) via Gemini
     ↓
-Agent LangGraph + outils (catalogue, commande, livraison, paiement, etc.)
+Agent LangGraph + outils (catalogue, commande, livraison, paiement, etc.) via Groq
     ↓
 Traduction (français → wolof) via Gemini
     ↓
@@ -183,10 +205,26 @@ fichier audio /audio/response_*.wav
 
 - `app/main.py` — points d'entrée FastAPI
 - `app/config.py` — variables d'environnement
+- `app/core/llm.py` — initialisation LLM agent (Groq ou Gemini)
+- `app/services/stt.py` — STT (Dikkte, Whisper, ElevenLabs)
 - `app/services/tts.py` — TTS Oolel
-- `app/services/translation.py` — Wolof ↔ Français
+- `app/services/translation.py` — Wolof ↔ Français via Gemini
 - `app/graph/builder.py` — LangGraph avec checkpointer MongoDB/MemorySaver
 - `app/tools/*.py` — outils métier (catalogue, commande, livraison, paiement, etc.)
+
+---
+
+# Commandes utils
+
+## Démarrer le serveur
+```bash
+python -m uvicorn app.main:app --port 8002
+```
+
+## Arrêter le serveur
+```bash
+pkill -f 'uvicorn app.main'
+```
 
 ---
 
@@ -194,7 +232,7 @@ fichier audio /audio/response_*.wav
 
 ### Quota Gemini
 
-Sur le plan gratuit Google Gemini, `gemini-3.5-flash` est limité à environ **20 requêtes par jour**.
+Sur le plan gratuit Google Gemini, le modèle de traduction (`TRANSLATION_MODEL`, par défaut `gemini-3.6-flash`) est limité à environ **20 requêtes par jour**. L'agent de raisonnement utilise maintenant Groq (`GROQ_API_KEY`) et n'est donc plus concerné par ce quota.
 
 Si tu obtiens une réponse `Internal Server Error` alors que tout semble bien démarré, vérifie les logs du serveur : tu y verras probablement une erreur `429 RESOURCE_EXHAUSTED`.
 
@@ -202,7 +240,7 @@ Solutions :
 
 - Attendre le reset du quota (24 h).
 - Utiliser une autre clé `GOOGLE_API_KEY`.
-- Passer à un plan payant ou à un autre modèle (`LLM_MODEL` dans `.env`).
+- Passer à un plan payant ou à un autre modèle (`TRANSLATION_MODEL` dans `.env`).
 
 ### Que stocke MongoDB ?
 

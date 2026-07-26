@@ -6,10 +6,12 @@ python-dotenv
 langchain
 langgraph
 langchain-google-genai
+langchain-groq
 langgraph-checkpoint-mongodb
 pymongo
 faster-whisper
 requests
+tenacity
 
 # TTS : Oolel-Voices (soynade-research)
 torch
@@ -24,3 +26,4 @@ torchcodec
 s3tokenizer
 num2words
 omegaconf
+sentencepiece

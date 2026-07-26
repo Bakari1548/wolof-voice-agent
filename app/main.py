@@ -16,16 +16,18 @@ Endpoint de debug : POST /debug/text-query
     directement du texte wolof (utile pendant le développement)
 
 Lancer en local :
-    uvicorn app.main:app --reload --port 8000
+    uvicorn app.main:app --reload --port 8002
 """
 
+import logging
 import os
 import shutil
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
@@ -36,17 +38,27 @@ from app.services import stt, translation, tts, agent_runner
 
 app = FastAPI(title="Wolof Voice Agent")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Sert les fichiers audio générés pour que l'app mobile puisse les télécharger
 app.mount("/audio", StaticFiles(directory=settings.TMP_AUDIO_DIR), name="audio")
+
+
+logger = logging.getLogger(__name__)
 
 
 def _synthesize_or_empty(text_wolof: str) -> str:
     try:
         audio_path = tts.synthesize_speech(text_wolof)
         return f"/audio/{os.path.basename(audio_path)}"
-    except Exception:
-        # Le TTS n'est pas encore prêt (modèle non chargé, échantillon manquant,
-        # etc.) : on renvoie quand même le texte pour pouvoir tester le reste.
+    except Exception as exc:
+        logger.warning("TTS non disponible : %s", exc, exc_info=True)
         return ""
 
 
@@ -105,9 +117,9 @@ def _run_pipeline(user_id: str, text_wolof: str, current_screen: Optional[str] =
 
 @app.post("/voice-query", response_model=VoiceQueryResponse)
 async def voice_query(
-    user_id: str,
+    user_id: str = Form(...),
     audio_file: UploadFile = File(...),
-    current_screen: Optional[str] = None,
+    current_screen: Optional[str] = Form(None),
 ):
     """Endpoint principal utilisé par l'app mobile."""
 

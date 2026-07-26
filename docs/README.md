@@ -1,8 +1,8 @@
-# Wolof Voice Agent — Squelette (LangGraph + Gemini)
+# Wolof Voice Agent — Squelette (LangGraph + Groq/Gemini)
 
-Pipeline : **App mobile (audio wolof) → STT → traduction wolof→français →
-agent LangGraph (Gemini) avec tools par domaine métier → traduction
-français→wolof → TTS → audio renvoyé**.
+Pipeline : **App mobile (audio wolof) → STT Dikkte → texte wolof → traduction wolof→français →
+agent LangGraph (Groq) avec tools par domaine métier → traduction
+français→wolof → TTS Oolel → audio renvoyé**.
 
 Les actions irréversibles (créer une commande, annuler une commande,
 initier un paiement) déclenchent une **demande de confirmation explicite**
@@ -15,7 +15,7 @@ app/
   main.py                  # FastAPI : /voice-query, /debug/text-query, /confirm
   config.py                # config centralisée (.env)
   core/
-    llm.py                 # init du modèle Gemini (init_chat_model, singleton)
+    llm.py                 # init du modèle agent (Groq ou Gemini, singleton)
     db.py                  # client MongoDB partagé (utilisé par le checkpointer)
   graph/
     state.py               # AgentState : état partagé du graphe
@@ -31,10 +31,10 @@ app/
     support.py               # repondre_faq
   models/schemas.py          # schémas Pydantic
   services/
-    stt.py                   # audio -> texte (Whisper local ou ElevenLabs)
+    stt.py                   # audio -> texte (dikkte HF wolof, Whisper local ou ElevenLabs)
     translation.py            # wolof <-> français via Gemini
     agent_runner.py            # façade d'appel au graphe (invoke / confirm)
-    tts.py                     # texte wolof -> audio (à brancher : Oolel-Voices)
+    tts.py                     # texte wolof -> audio (Oolel-Voices)
 ```
 
 ## Démarrage rapide
@@ -47,13 +47,13 @@ pip install -r requirements.txt
 cp .env.example .env
 # remplis GOOGLE_API_KEY, MONGO_URI, etc.
 
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8002
 ```
 
 Tester sans audio (le temps de brancher STT/TTS) :
 
 ```bash
-curl -X POST http://localhost:8000/debug/text-query \
+curl -X POST http://localhost:8002/debug/text-query \
   -H "Content-Type: application/json" \
   -d '{"user_id": "u1", "text_wolof": "Ban jamono la mburu bi di dem?"}'
 ```
@@ -61,7 +61,7 @@ curl -X POST http://localhost:8000/debug/text-query \
 Si la réponse a `"type": "confirmation_requise"`, confirme (ou annule) avec :
 
 ```bash
-curl -X POST http://localhost:8000/confirm \
+curl -X POST http://localhost:8002/confirm \
   -H "Content-Type: application/json" \
   -d '{"user_id": "u1", "accepted": true}'
 ```
@@ -71,15 +71,13 @@ curl -X POST http://localhost:8000/confirm \
 1. **`app/tools/*.py`** : remplacer les données mockées par de vraies
    requêtes MongoDB une fois le schéma des collections défini.
 
-2. **`app/services/tts.py`** : brancher le vrai modèle TTS.
-   Recommandé : [Oolel-Voices](https://huggingface.co/soynade-research)
-   (gère le wolof et le mélange wolof/français). Alternative : xTTS-v2
+2. **`app/services/tts.py`** : modèle TTS Oolel-Voices branché.
+   Il gère le wolof et le mélange wolof/français. Alternative : xTTS-v2
    fine-tuné wolof (GalsenAI).
 
-3. **`app/services/stt.py`** : tester `whisper_local` (gratuit, self-hosted)
-   vs `elevenlabs` (API payante, scribe_v1 supporte le wolof) avec de
-   vrais enregistrements de tes utilisateurs — le point critique est la
-   gestion du code-switching wolof/français.
+3. **`app/services/stt.py`** : modèle Dikkte (`utachicodes/dikkte-wolof-asr`)
+   utilisé par défaut pour le wolof. `whisper_local` et `elevenlabs` restent
+   disponibles. Le point critique reste le code-switching wolof/français.
 
 4. **Panier** : actuellement en mémoire de session (RAM). À migrer vers
    MongoDB si la persistance entre redémarrages devient nécessaire.
@@ -95,9 +93,12 @@ curl -X POST http://localhost:8000/confirm \
 ## Notes de design
 
 - **Traduction en 2 étapes** (wolof → français → wolof) via 2 appels
-  Gemini séparés : simplifie le debug (`transcript_french`,
+  Gemini séparés (`TRANSLATION_MODEL`, Google Gemini) : simplifie le debug (`transcript_french`,
   `answer_french` dans la réponse API) et donne un contrôle indépendant
   sur chaque sens de traduction.
+- **Séparation des LLM** : Gemini alimente uniquement la traduction ;
+  l'agent de raisonnement utilise Groq (`LLM_PROVIDER=groq`, `LLM_MODEL`).
+  `LLM_PROVIDER` peut être basculé sur `google_genai` si besoin.
 - **Un agent unique, tools organisés par domaine** : pas de
   multi-agents/MCP pour l'instant, mais chaque fichier de `app/tools/`
   est déjà isolé par domaine métier pour faciliter une évolution future
@@ -111,3 +112,19 @@ curl -X POST http://localhost:8000/confirm \
 - **Mémoire persistante** : le graphe est compilé avec un
   `MongoDBSaver` (checkpointer), `thread_id = user_id` → une conversation
   continue par utilisateur, stockée dans MongoDB.
+
+---
+
+## Interface React de test
+
+Un frontend léger est disponible dans `frontend/`. Il permet de tester l'API en mode texte (`/debug/text-query`) et voix (`/voice-query`) depuis le navigateur.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Ouvre `http://localhost:5173`.
+
+Le backend doit tourner sur `http://localhost:8002` (CORS déjà activé dans `app/main.py`).
