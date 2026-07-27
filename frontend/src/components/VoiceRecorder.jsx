@@ -1,15 +1,34 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { sendVoiceQuery } from '../api'
+import Icon from './Icon'
 
 export default function VoiceRecorder({ userId, currentScreen, onResponse, onLoading, onError }) {
   const [recording, setRecording] = useState(false)
+  const [recordTime, setRecordTime] = useState(0)
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    if (recording) {
+      setRecordTime(0)
+      timerRef.current = setInterval(() => setRecordTime((t) => t + 1), 1000)
+    } else {
+      clearInterval(timerRef.current)
+    }
+    return () => clearInterval(timerRef.current)
+  }, [recording])
 
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      const supported =
+        typeof MediaRecorder !== 'undefined' &&
+        MediaRecorder.isTypeSupported &&
+        MediaRecorder.isTypeSupported('audio/webm')
+      const mediaRecorder = supported
+        ? new MediaRecorder(stream, { mimeType: 'audio/webm' })
+        : new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
 
@@ -32,6 +51,11 @@ export default function VoiceRecorder({ userId, currentScreen, onResponse, onLoa
         }
       }
 
+      mediaRecorder.onerror = (e) => {
+        onError(`Erreur d'enregistrement : ${e.message || 'inconnue'}`)
+        setRecording(false)
+      }
+
       mediaRecorder.start()
       setRecording(true)
     } catch (err) {
@@ -47,11 +71,24 @@ export default function VoiceRecorder({ userId, currentScreen, onResponse, onLoa
   }
 
   return (
-    <div className="voice-recorder">
-      <button onClick={recording ? stopRecording : startRecording}>
-        {recording ? "Arrêter l'enregistrement" : "Démarrer l'enregistrement"}
-      </button>
-      {recording && <span className="recording-badge">Enregistrement...</span>}
+    <div className='voice-recorder'>
+      <div className={`mic-button-wrap ${recording ? 'recording' : ''}`}>
+        <button
+          type='button'
+          className={`mic-button ${recording ? 'recording' : ''}`}
+          onClick={recording ? stopRecording : startRecording}
+          aria-label={recording ? 'Arrêter' : 'Enregistrer'}
+        >
+          <Icon name={recording ? 'square' : 'mic'} size={32} />
+        </button>
+      </div>
+      {recording ? (
+        <span className='recording-timer'>
+          <span className='pulse-dot' /> Enregistrement {recordTime}s
+        </span>
+      ) : (
+        <p className='rec-hint'>Appuie sur le micro pour parler en wolof</p>
+      )}
     </div>
   )
 }

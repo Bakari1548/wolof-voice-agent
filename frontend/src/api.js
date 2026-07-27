@@ -40,3 +40,9 @@ export async function checkHealth() {
   if (!res.ok) throw new Error(`Backend injoignable (${res.status})`)
   return res.json()
 }
+
+export async function getHistory(userId, limit = 20) {
+  const res = await fetch(`${BASE_URL}/history/${encodeURIComponent(userId)}?limit=${limit}`)
+  if (!res.ok) throw new Error(`Erreur HTTP ${res.status}`)
+  return res.json()
+}

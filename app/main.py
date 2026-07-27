@@ -156,6 +156,22 @@ async def confirm(payload: ConfirmRequest):
     return response
 
 
+@app.get("/history/{user_id}")
+async def get_history(user_id: str, limit: int = 20):
+    """Liste les échanges passés de l'utilisateur stockés dans `api_responses`."""
+    try:
+        collection = db.get_db()["api_responses"]
+        cursor = collection.find({"user_id": user_id}).sort("created_at", -1).limit(limit)
+        items = []
+        for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            items.append(doc)
+        return items
+    except Exception as exc:
+        logger.warning("Impossible de charger l'historique : %s", exc)
+        raise HTTPException(status_code=503, detail="MongoDB indisponible")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

@@ -1,4 +1,5 @@
 import { confirmAction } from '../api'
+import Icon from './Icon'
 
 export default function ConfirmPanel({ userId, details, onResponse, onLoading, onError }) {
   async function handleConfirm(accepted) {
@@ -15,13 +16,19 @@ export default function ConfirmPanel({ userId, details, onResponse, onLoading, o
   }
 
   return (
-    <div className="confirm-panel">
-      <h3>Confirmation requise</h3>
-      <p>Action : {details?.action || 'inconnue'}</p>
+    <div className='confirm-panel'>
+      <div className='panel-header warning'>
+        <Icon name='alertTriangle' size={20} /> Confirmation requise
+      </div>
+      <p className='confirm-action'>Action : {details?.action || 'inconnue'}</p>
       <pre>{JSON.stringify(details?.details, null, 2)}</pre>
-      <div className="confirm-buttons">
-        <button className="btn-yes" onClick={() => handleConfirm(true)}>Oui</button>
-        <button className="btn-no" onClick={() => handleConfirm(false)}>Non</button>
+      <div className='confirm-buttons'>
+        <button className='btn-success' onClick={() => handleConfirm(true)}>
+          <Icon name='check' size={18} /> Oui
+        </button>
+        <button className='btn-danger' onClick={() => handleConfirm(false)}>
+          <Icon name='x' size={18} /> Non
+        </button>
       </div>
     </div>
   )
