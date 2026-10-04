@@ -2,7 +2,14 @@ import { useState, useRef, useEffect } from 'react'
 import { sendVoiceQuery } from '../api'
 import Icon from './Icon'
 
-export default function VoiceRecorder({ userId, currentScreen, onResponse, onLoading, onError }) {
+export default function VoiceRecorder({
+  userId,
+  currentScreen,
+  onResponse,
+  onLoading,
+  onError,
+  loading = false,
+}) {
   const [recording, setRecording] = useState(false)
   const [recordTime, setRecordTime] = useState(0)
   const mediaRecorderRef = useRef(null)
@@ -20,6 +27,7 @@ export default function VoiceRecorder({ userId, currentScreen, onResponse, onLoa
   }, [recording])
 
   async function startRecording() {
+    if (loading) return
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const supported =
@@ -70,25 +78,48 @@ export default function VoiceRecorder({ userId, currentScreen, onResponse, onLoa
     }
   }
 
+  const stateClass = recording ? 'is-recording' : loading ? 'is-processing' : 'is-idle'
+
   return (
-    <div className='voice-recorder'>
-      <div className={`mic-button-wrap ${recording ? 'recording' : ''}`}>
-        <button
-          type='button'
-          className={`mic-button ${recording ? 'recording' : ''}`}
-          onClick={recording ? stopRecording : startRecording}
-          aria-label={recording ? 'Arrêter' : 'Enregistrer'}
-        >
-          <Icon name={recording ? 'square' : 'mic'} size={32} />
-        </button>
+    <div className={`voice-orb ${stateClass}`}>
+      <div className='voice-orb__rings' aria-hidden='true'>
+        <span className='ring ring--1' />
+        <span className='ring ring--2' />
+        <span className='ring ring--3' />
       </div>
-      {recording ? (
-        <span className='recording-timer'>
-          <span className='pulse-dot' /> Enregistrement {recordTime}s
-        </span>
-      ) : (
-        <p className='rec-hint'>Appuie sur le micro pour parler en wolof</p>
-      )}
+
+      <div className='voice-orb__viz' aria-hidden='true'>
+        {[...Array(12)].map((_, i) => (
+          <span key={i} className='viz-bar' style={{ '--i': i }} />
+        ))}
+      </div>
+
+      <button
+        type='button'
+        className='voice-orb__btn'
+        onClick={recording ? stopRecording : startRecording}
+        disabled={loading && !recording}
+        aria-label={recording ? 'Arrêter' : loading ? 'Traitement…' : 'Parler'}
+      >
+        {loading && !recording ? (
+          <Icon name='loader' size={36} className='spin' />
+        ) : (
+          <Icon name={recording ? 'square' : 'mic'} size={36} />
+        )}
+      </button>
+
+      <p className='voice-orb__hint'>
+        {recording ? (
+          <>
+            <span className='rec-live' />
+            Enregistrement · {recordTime}s
+          </>
+        ) : loading ? (
+          'Analyse de ta voix…'
+        ) : (
+          'Appuie pour parler'
+        )}
+      </p>
     </div>
   )
 }

@@ -21,20 +21,24 @@ export default function TextQuery({ userId, currentScreen, onResponse, onLoading
   }
 
   return (
-    <form onSubmit={handleSubmit} className='query-form'>
-      <label className='query-label'>
-        <span>
-          <Icon name='message' size={18} /> Texte en wolof
-        </span>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder='Naata le prix bu suukar bi? — Naga def, mba yagui ci diam. Mane dama bouguona kham lane guen di diay'
-          rows={4}
-        />
-      </label>
-      <button type='submit' disabled={!text.trim()} className='btn-primary'>
-        <Icon name='send' size={18} /> Envoyer
+    <form onSubmit={handleSubmit} className='text-compose'>
+      <header className='text-compose__head'>
+        <Icon name='message' size={22} />
+        <div>
+          <h2 className='text-compose__title'>Message en wolof</h2>
+          <p className='text-compose__sub'>Écris comme tu parlerais — la réponse sera vocalisée</p>
+        </div>
+      </header>
+      <textarea
+        className='text-compose__input'
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder='Naata le prix bu suukar bi?'
+        rows={5}
+      />
+      <button type='submit' disabled={!text.trim()} className='btn btn--primary'>
+        <Icon name='send' size={18} />
+        Envoyer
       </button>
     </form>
   )

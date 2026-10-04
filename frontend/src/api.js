@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8002'
+export const BASE_URL = 'http://localhost:8002'
 
 export async function sendTextQuery(userId, textWolof, currentScreen = null) {
   const body = { user_id: userId, text_wolof: textWolof }

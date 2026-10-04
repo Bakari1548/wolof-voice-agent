@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
-import { getHistory } from '../api'
+import { getHistory, BASE_URL } from '../api'
 import Icon from './Icon'
 
 function formatDate(iso) {
   if (!iso) return ''
-  return new Date(iso).toLocaleString('fr-FR')
+  return new Date(iso).toLocaleString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 export default function HistoryPanel({ userId }) {
@@ -24,62 +29,61 @@ export default function HistoryPanel({ userId }) {
 
   if (loading) {
     return (
-      <div className='history-status'>
-        <Icon name='loader' size={20} className='spin' /> Chargement de l'historique...
+      <div className='empty-state'>
+        <Icon name='loader' size={24} className='spin' />
+        <p>Chargement de l&apos;historique…</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className='history-status error'>
-        <Icon name='alertCircle' size={20} /> {error}
+      <div className='empty-state empty-state--error'>
+        <Icon name='alertCircle' size={24} />
+        <p>{error}</p>
       </div>
     )
   }
 
   if (history.length === 0) {
     return (
-      <div className='history-status'>
-        <Icon name='clock' size={20} /> Aucun échange trouvé pour <strong>{userId}</strong>.
+      <div className='empty-state'>
+        <Icon name='clock' size={24} />
+        <p>Aucun échange pour <strong>{userId}</strong></p>
       </div>
     )
   }
 
   return (
-    <div className='history-panel'>
-      <div className='history-header'>
-        <Icon name='clock' size={20} /> Historique de <strong>{userId}</strong>
-      </div>
-      <ul className='history-list'>
+    <div className='history'>
+      <header className='history__head'>
+        <Icon name='clock' size={22} />
+        <div>
+          <h2 className='history__title'>Historique</h2>
+          <p className='history__sub'>{userId} · {history.length} échange{history.length > 1 ? 's' : ''}</p>
+        </div>
+      </header>
+      <ul className='history__list'>
         {history.map((item, index) => (
-          <li key={item._id || index} className='history-card'>
-            <div className='history-meta'>
-              <span className='history-type'>
-                <Icon name='tag' size={14} /> {item.type}
-              </span>
-              <span className='history-date'>{formatDate(item.created_at)}</span>
+          <li key={item._id || index} className='history__item'>
+            <div className='history__item-top'>
+              <span className='history__badge'>{item.type}</span>
+              <time className='history__time'>{formatDate(item.created_at)}</time>
             </div>
-            <div className='history-block'>
-              <span className='history-label'>
-                <Icon name='message' size={14} /> Wolof
-              </span>
-              <p>{item.transcript_wolof || '—'}</p>
-            </div>
-            <div className='history-block'>
-              <span className='history-label'>
-                <Icon name='robot' size={14} /> Réponse
-              </span>
-              <p>{item.answer_wolof || '—'}</p>
-            </div>
+            {item.transcript_wolof && (
+              <p className='history__line'>
+                <span className='history__who'>Toi</span>
+                {item.transcript_wolof}
+              </p>
+            )}
+            {item.answer_wolof && (
+              <p className='history__line history__line--reply'>
+                <span className='history__who'>Assistant</span>
+                {item.answer_wolof}
+              </p>
+            )}
             {item.audio_url && (
-              <audio
-                controls
-                src={`http://localhost:8002${item.audio_url}`}
-                className='history-audio'
-              >
-                Votre navigateur ne supporte pas la lecture audio.
-              </audio>
+              <audio controls src={`${BASE_URL}${item.audio_url}`} className='history__audio' preload='none' />
             )}
           </li>
         ))}

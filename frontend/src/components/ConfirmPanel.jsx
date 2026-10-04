@@ -16,17 +16,22 @@ export default function ConfirmPanel({ userId, details, onResponse, onLoading, o
   }
 
   return (
-    <div className='confirm-panel'>
-      <div className='panel-header warning'>
-        <Icon name='alertTriangle' size={20} /> Confirmation requise
+    <div className='confirm glass' role='dialog' aria-labelledby='confirm-title'>
+      <div className='confirm__icon' aria-hidden='true'>
+        <Icon name='alertTriangle' size={28} />
       </div>
-      <p className='confirm-action'>Action : {details?.action || 'inconnue'}</p>
-      <pre>{JSON.stringify(details?.details, null, 2)}</pre>
-      <div className='confirm-buttons'>
-        <button className='btn-success' onClick={() => handleConfirm(true)}>
+      <h2 id='confirm-title' className='confirm__title'>
+        Confirmation requise
+      </h2>
+      <p className='confirm__action'>
+        Action : <strong>{details?.action || 'inconnue'}</strong>
+      </p>
+      <pre className='confirm__details'>{JSON.stringify(details?.details, null, 2)}</pre>
+      <div className='confirm__actions'>
+        <button type='button' className='btn btn--success' onClick={() => handleConfirm(true)}>
           <Icon name='check' size={18} /> Oui
         </button>
-        <button className='btn-danger' onClick={() => handleConfirm(false)}>
+        <button type='button' className='btn btn--danger' onClick={() => handleConfirm(false)}>
           <Icon name='x' size={18} /> Non
         </button>
       </div>
